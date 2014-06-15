@@ -370,11 +370,115 @@ class Evaluator {
                                          Util.safeCar(Util.safeCdr(args)));
                 }
         };
+        Subr subrEq = new Subr() {
+                @Override public LObj call(LObj args) {
+                    LObj x = Util.safeCar(args);
+                    LObj y = Util.safeCar(Util.safeCdr(args));
+                    if (x.tag() == Type.NUM && y.tag() == Type.NUM) {
+                        if (x.num() == y.num()) {
+                            return Util.makeSym("t");
+                        } else {
+                            return Util.kNil;
+                        }
+                    } else if (x == y) {
+                        return Util.makeSym("t");
+                    }
+                    return Util.kNil;
+                }
+        };
+        Subr subrAtom = new Subr() {
+                @Override public LObj call(LObj args) {
+                    if (Util.safeCar(args).tag() == Type.CONS) {
+                        return Util.kNil;
+                    }
+                    return Util.makeSym("t");
+                }
+        };
+
+        Subr subrNumberp = new Subr() {
+                @Override public LObj call(LObj args) {
+                    if (Util.safeCar(args).tag() == Type.NUM) {
+                        return Util.makeSym("t");
+                    }
+                    return Util.kNil;
+                }
+        };
+        Subr subrSymbolp = new Subr() {
+                @Override public LObj call(LObj args) {
+                    if (Util.safeCar(args).tag() == Type.SYM) {
+                        return Util.makeSym("t");
+                    }
+                    return Util.kNil;
+                }
+        };
+        class SubrAddOrMul extends Subr {
+            @Override public LObj call(LObj args) {
+                Integer ret = initVal;
+                while (args.tag() == Type.CONS) {
+                    if (args.cons().car.tag() != Type.NUM) {
+                        return Util.makeError("wrong type");
+                    }
+                    ret = calc(ret, args.cons().car.num());
+                    args = args.cons().cdr;
+                }
+                return Util.makeNum(ret);
+            }
+            public SubrAddOrMul(Integer i) {
+                initVal = i;
+            }
+            public Integer calc(Integer x, Integer y) { return 0; }
+            private Integer initVal;
+        }
+        Subr subrAdd = new SubrAddOrMul(0) {
+                @Override public Integer calc(Integer x, Integer y) {
+                    return x + y;
+                }
+        };
+        Subr subrMul = new SubrAddOrMul(1) {
+                @Override public Integer calc(Integer x, Integer y) {
+                    return x * y;
+                }
+        };
+        class SubrSubOrDivOrMod extends Subr {
+            @Override public LObj call(LObj args) {
+                LObj x = Util.safeCar(args);
+                LObj y = Util.safeCar(Util.safeCdr(args));
+                if (x.tag() != Type.NUM || y.tag() != Type.NUM) {
+                    return Util.makeError("wrong type");
+                }
+                return Util.makeNum(calc(x.num(), y.num()));
+            }
+            public Integer calc(Integer x, Integer y) { return 0; }
+        }
+        Subr subrSub = new SubrSubOrDivOrMod() {
+                @Override public Integer calc(Integer x, Integer y) {
+                    return x - y;
+                }
+        };
+        Subr subrDiv = new SubrSubOrDivOrMod() {
+                @Override public Integer calc(Integer x, Integer y) {
+                    return x / y;
+                }
+        };
+        Subr subrMod = new SubrSubOrDivOrMod() {
+                @Override public Integer calc(Integer x, Integer y) {
+                    return x % y;
+                }
+        };
 
         LObj env = Util.makeCons(Util.kNil, Util.kNil);
         addToEnv(Util.makeSym("car"), Util.makeSubr(subrCar), env);
         addToEnv(Util.makeSym("cdr"), Util.makeSubr(subrCdr), env);
         addToEnv(Util.makeSym("cons"), Util.makeSubr(subrCons), env);
+        addToEnv(Util.makeSym("eq"), Util.makeSubr(subrEq), env);
+        addToEnv(Util.makeSym("atom"), Util.makeSubr(subrAtom), env);
+        addToEnv(Util.makeSym("numberp"), Util.makeSubr(subrNumberp), env);
+        addToEnv(Util.makeSym("symbolp"), Util.makeSubr(subrSymbolp), env);
+        addToEnv(Util.makeSym("+"), Util.makeSubr(subrAdd), env);
+        addToEnv(Util.makeSym("*"), Util.makeSubr(subrMul), env);
+        addToEnv(Util.makeSym("-"), Util.makeSubr(subrSub), env);
+        addToEnv(Util.makeSym("/"), Util.makeSubr(subrDiv), env);
+        addToEnv(Util.makeSym("mod"), Util.makeSubr(subrMod), env);
         addToEnv(Util.makeSym("t"), Util.makeSym("t"), env);
         return env;
     }
