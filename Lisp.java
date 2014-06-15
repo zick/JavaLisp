@@ -29,6 +29,44 @@ class LObj {
     public Expr exper() {
         return (Expr)data_;
     }
+
+    public String toString() {
+        if (tag_ == Type.NIL) {
+            return "nil";
+        } else if (tag_ == Type.NUM) {
+            return num().toString();
+        } else if (tag_ == Type.SYM) {
+            return str();
+        } else if (tag_ == Type.ERROR) {
+            return "<error: " + str() + ">";
+        } else if (tag_ == Type.CONS) {
+            return listToString(this);
+        } else if (tag_ == Type.SUBR) {
+            return "<subr>";
+        } else if (tag_ == Type.EXPR) {
+            return "<expr>";
+        }
+        return "<unknown>";
+    }
+
+    private String listToString(LObj obj) {
+        String ret = "";
+        boolean first = true;
+        while (obj.tag() == Type.CONS) {
+            if (first) {
+                first = false;
+            } else {
+                ret += " ";
+            }
+            ret += obj.cons().car.toString();
+            obj = obj.cons().cdr;
+        }
+        if (obj.tag() == Type.NIL) {
+            return "(" + ret + ")";
+        }
+        return "(" + ret + " . " + obj.toString() + ")";
+    }
+
     private Type tag_;
     private Object data_;
 }
@@ -95,6 +133,17 @@ class Util {
         return kNil;
     }
 
+    public static LObj nreverse(LObj lst) {
+        LObj ret = kNil;
+        while (lst.tag() == Type.CONS) {
+            LObj tmp = lst.cons().cdr;
+            lst.cons().cdr = ret;
+            ret = lst;
+            lst = tmp;
+        }
+        return ret;
+    }
+
     public final static LObj kNil = new LObj(Type.NIL, "nil");
     private static Map<String, LObj> symbolMap = new HashMap<String, LObj>();
 }
@@ -158,11 +207,35 @@ class Reader {
         } else if (str.charAt(0) == kRPar) {
             return parseError("invalid syntax: " + str);
         } else if (str.charAt(0) == kLPar) {
-            return parseError("noimpl");
+            return readList(str.substring(1, str.length()));
         } else if (str.charAt(0) == kQuote) {
-            return parseError("noimpl");
+            ParseState tmp = read(str.substring(1, str.length()));
+            return new ParseState(
+                Util.makeCons(Util.makeSym("quote"),
+                              Util.makeCons(tmp.obj, Util.kNil)),
+                tmp.next);
         }
         return readAtom(str);
+    }
+
+    private static ParseState readList(String str) {
+        LObj ret = Util.kNil;
+        while (true) {
+            str = skipSpaces(str);
+            if (str.length() == 0) {
+                return parseError("unfinished parenthesis");
+            } else if (str.charAt(0) == kRPar) {
+                break;
+            }
+            ParseState tmp = read(str);
+            if (tmp.obj.tag() == Type.ERROR) {
+                return tmp;
+            }
+            ret = Util.makeCons(tmp.obj, ret);
+            str = tmp.next;
+        }
+        return new ParseState(Util.nreverse(ret),
+                              str.substring(1, str.length()));
     }
 
     private final static char kLPar = '(';
