@@ -244,15 +244,56 @@ class Reader {
 
 }
 
+class Evaluator {
+    private static LObj findVar(LObj sym, LObj env) {
+        while (env.tag() == Type.CONS) {
+            LObj alist = env.cons().car;
+            while (alist.tag() == Type.CONS) {
+                if (alist.cons().car.cons().car == sym) {
+                    return alist.cons().car;
+                }
+                alist = alist.cons().cdr;
+            }
+            env = env.cons().cdr;
+        }
+        return Util.kNil;
+    }
+
+    public static void addToEnv(LObj sym, LObj val, LObj env) {
+        env.cons().car = Util.makeCons(Util.makeCons(sym, val), env.cons().car);
+    }
+
+    public static LObj eval(LObj obj, LObj env) {
+        if (obj.tag() == Type.NIL || obj.tag() == Type.NUM ||
+            obj.tag() == Type.ERROR) {
+            return obj;
+        } else if (obj.tag() == Type.SYM) {
+            LObj bind = findVar(obj, env);
+            if (bind == Util.kNil) {
+                return Util.makeError(obj.str() + " has no value");
+            }
+            return bind.cons().cdr;
+        }
+        return Util.makeError("noimpl");
+    }
+
+    public static LObj makeGlobalEnv() {
+        LObj env = Util.makeCons(Util.kNil, Util.kNil);
+        addToEnv(Util.makeSym("t"), Util.makeSym("t"), env);
+        return env;
+    }
+}
+
 public class Lisp {
     public static void main(String[] args) {
         InputStreamReader ireader = new InputStreamReader(System.in);
         BufferedReader breader = new BufferedReader(ireader);
+        LObj gEnv = Evaluator.makeGlobalEnv();
         try {
             String line;
             System.out.print("> ");
             while ((line = breader.readLine()) != null) {
-                System.out.print(Reader.read(line).obj);
+                System.out.print(Evaluator.eval(Reader.read(line).obj, gEnv));
             System.out.print("\n> ");
             }
         } catch (IOException e) {}
