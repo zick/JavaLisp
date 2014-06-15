@@ -30,7 +30,7 @@ class LObj {
         return (Expr)data_;
     }
 
-    public String toString() {
+    @Override public String toString() {
         if (tag_ == Type.NIL) {
             return "nil";
         } else if (tag_ == Type.NUM) {
@@ -80,8 +80,8 @@ class Cons {
     public LObj cdr;
 }
 
-interface Subr {
-    LObj call(LObj args);
+class Subr {
+    public LObj call(LObj args) { return args; }
 }
 
 class Expr {
@@ -274,11 +274,67 @@ class Evaluator {
             }
             return bind.cons().cdr;
         }
-        return Util.makeError("noimpl");
+
+        LObj op = Util.safeCar(obj);
+        LObj args = Util.safeCdr(obj);
+        if (op == Util.makeSym("quote")) {
+            return Util.safeCar(args);
+        } else if (op == Util.makeSym("if")) {
+            if (eval(Util.safeCar(args), env) == Util.kNil) {
+                return eval(Util.safeCar(Util.safeCdr(Util.safeCdr(args))),
+                            env);
+            }
+            return eval(Util.safeCar(Util.safeCdr(args)), env);
+        }
+        return apply(eval(op, env), evlis(args, env), env);
+    }
+
+    private static LObj evlis(LObj lst, LObj env) {
+        LObj ret = Util.kNil;
+        while (lst.tag() == Type.CONS) {
+            LObj elm = eval(lst.cons().car, env);
+            if (elm.tag() == Type.ERROR) {
+                return elm;
+            }
+            ret = Util.makeCons(elm, ret);
+            lst = lst.cons().cdr;
+        }
+        return Util.nreverse(ret);
+    }
+
+    private static LObj apply(LObj fn, LObj args, LObj env) {
+        if (fn.tag() == Type.ERROR) {
+            return fn;
+        } else if (args.tag() == Type.ERROR) {
+            return args;
+        } else if (fn.tag() == Type.SUBR) {
+            return fn.subr().call(args);
+        }
+        return Util.makeError(fn.toString() + " is not function");
     }
 
     public static LObj makeGlobalEnv() {
+        Subr subrCar = new Subr() {
+                @Override public LObj call(LObj args) {
+                    return Util.safeCar(Util.safeCar(args));
+                }
+        };
+        Subr subrCdr = new Subr() {
+                @Override public LObj call(LObj args) {
+                    return Util.safeCdr(Util.safeCar(args));
+                }
+        };
+        Subr subrCons = new Subr() {
+                @Override public LObj call(LObj args) {
+                    return Util.makeCons(Util.safeCar(args),
+                                         Util.safeCar(Util.safeCdr(args)));
+                }
+        };
+
         LObj env = Util.makeCons(Util.kNil, Util.kNil);
+        addToEnv(Util.makeSym("car"), Util.makeSubr(subrCar), env);
+        addToEnv(Util.makeSym("cdr"), Util.makeSubr(subrCdr), env);
+        addToEnv(Util.makeSym("cons"), Util.makeSubr(subrCons), env);
         addToEnv(Util.makeSym("t"), Util.makeSym("t"), env);
         return env;
     }
