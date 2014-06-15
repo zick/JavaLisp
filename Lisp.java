@@ -302,6 +302,16 @@ class Evaluator {
             LObj sym = Util.safeCar(args);
             addToEnv(sym, expr, gEnv);
             return sym;
+        } else if (op == Util.makeSym("setq")) {
+            LObj val = eval(Util.safeCar(Util.safeCdr(args)), env);
+            LObj sym = Util.safeCar(args);
+            LObj bind = findVar(sym, env);
+            if (bind == Util.kNil) {
+                addToEnv(sym, val, gEnv);
+            } else {
+                bind.cons().cdr = val;
+            }
+            return val;
         }
         return apply(eval(op, env), evlis(args, env), env);
     }
