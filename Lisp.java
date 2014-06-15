@@ -26,7 +26,7 @@ class LObj {
     public Subr subr() {
         return (Subr)data_;
     }
-    public Expr exper() {
+    public Expr expr() {
         return (Expr)data_;
     }
 
@@ -142,6 +142,16 @@ class Util {
             lst = tmp;
         }
         return ret;
+    }
+
+    public static LObj pairlis(LObj lst1, LObj lst2) {
+        LObj ret = kNil;
+        while (lst1.tag() == Type.CONS && lst2.tag() == Type.CONS) {
+            ret = makeCons(makeCons(lst1.cons().car, lst2.cons().car), ret);
+            lst1 = lst1.cons().cdr;
+            lst2 = lst2.cons().cdr;
+        }
+        return nreverse(ret);
     }
 
     public final static LObj kNil = new LObj(Type.NIL, "nil");
@@ -285,6 +295,8 @@ class Evaluator {
                             env);
             }
             return eval(Util.safeCar(Util.safeCdr(args)), env);
+        } else if (op == Util.makeSym("lambda")) {
+            return Util.makeExpr(args, env);
         }
         return apply(eval(op, env), evlis(args, env), env);
     }
@@ -302,6 +314,15 @@ class Evaluator {
         return Util.nreverse(ret);
     }
 
+    private static LObj progn(LObj body, LObj env) {
+        LObj ret = Util.kNil;
+        while (body.tag() == Type.CONS) {
+            ret = eval(body.cons().car, env);
+            body = body.cons().cdr;
+        }
+        return ret;
+    }
+
     private static LObj apply(LObj fn, LObj args, LObj env) {
         if (fn.tag() == Type.ERROR) {
             return fn;
@@ -309,6 +330,10 @@ class Evaluator {
             return args;
         } else if (fn.tag() == Type.SUBR) {
             return fn.subr().call(args);
+        } else if (fn.tag() == Type.EXPR) {
+            return progn(fn.expr().body,
+                         Util.makeCons(Util.pairlis(fn.expr().args, args),
+                                       fn.expr().env));
         }
         return Util.makeError(fn.toString() + " is not function");
     }
