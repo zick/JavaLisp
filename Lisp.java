@@ -297,6 +297,11 @@ class Evaluator {
             return eval(Util.safeCar(Util.safeCdr(args)), env);
         } else if (op == Util.makeSym("lambda")) {
             return Util.makeExpr(args, env);
+        } else if (op == Util.makeSym("defun")) {
+            LObj expr = Util.makeExpr(Util.safeCdr(args), env);
+            LObj sym = Util.safeCar(args);
+            addToEnv(sym, expr, gEnv);
+            return sym;
         }
         return apply(eval(op, env), evlis(args, env), env);
     }
@@ -338,7 +343,7 @@ class Evaluator {
         return Util.makeError(fn.toString() + " is not function");
     }
 
-    public static LObj makeGlobalEnv() {
+    private static LObj makeGlobalEnv() {
         Subr subrCar = new Subr() {
                 @Override public LObj call(LObj args) {
                     return Util.safeCar(Util.safeCar(args));
@@ -363,13 +368,17 @@ class Evaluator {
         addToEnv(Util.makeSym("t"), Util.makeSym("t"), env);
         return env;
     }
+
+    public static LObj globalEnv() { return gEnv; }
+
+    private static LObj gEnv = makeGlobalEnv();
 }
 
 public class Lisp {
     public static void main(String[] args) {
         InputStreamReader ireader = new InputStreamReader(System.in);
         BufferedReader breader = new BufferedReader(ireader);
-        LObj gEnv = Evaluator.makeGlobalEnv();
+        LObj gEnv = Evaluator.globalEnv();
         try {
             String line;
             System.out.print("> ");
